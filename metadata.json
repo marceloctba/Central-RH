@@ -1,0 +1,10 @@
+{
+  "name": "Central RH — Gestão de Equipe e Escalas",
+  "description": "Aplicativo gerencial para cadastro de funcionários com foto (arquivo ou câmera), lembretes de aniversariantes da semana, controle de escala semanal com horário de almoço, banco de horas extras e visualização completa da escala diária.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

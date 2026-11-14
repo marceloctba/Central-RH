@@ -1,0 +1,450 @@
+{
+  "entities": {
+    "Store": {
+      "title": "Store",
+      "description": "Retail store workspace with name, owner, and authorized manager emails.",
+      "type": "object",
+      "properties": {
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "UID of the user who created the store."
+        },
+        "ownerEmail": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 120,
+          "description": "Lowercase email of the store owner."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Display name of the store."
+        },
+        "managerEmails": {
+          "type": "array",
+          "description": "Bounded list (max 20) of lowercase emails of employees with manager permissions in this store."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last update timestamp."
+        }
+      },
+      "required": ["ownerId", "ownerEmail", "name", "managerEmails", "createdAt", "updatedAt"]
+    },
+    "Employee": {
+      "title": "Employee",
+      "description": "Store employee profile, email login access, manager flag, birthday, role, photo, and weekly shift schedule.",
+      "type": "object",
+      "properties": {
+        "storeId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Reference ID of the store document."
+        },
+        "storeName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Denormalized name of the store."
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "UID of the store owner."
+        },
+        "managerEmails": {
+          "type": "array",
+          "description": "Synced bounded list of store manager emails for rule-enforced list queries."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Full name of the employee."
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Optional lowercase email allowing the employee to view their own schedule, log overtime, or manage the store if Gerente."
+        },
+        "role": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Job title or store role (e.g., Gerente, Caixa, Vendedor, Estoquista)."
+        },
+        "isManager": {
+          "type": "boolean",
+          "description": "Whether this employee has full manager control over the store."
+        },
+        "birthDate": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "minLength": 10,
+          "maxLength": 10,
+          "description": "Employee date of birth in YYYY-MM-DD format."
+        },
+        "photoDataUrl": {
+          "type": "string",
+          "maxLength": 200000,
+          "description": "Compressed JPEG data URL or empty string."
+        },
+        "active": {
+          "type": "boolean",
+          "description": "Whether the employee is active."
+        },
+        "schedule": {
+          "type": "object",
+          "description": "Weekly schedule map keyed by mon, tue, wed, thu, fri, sat, sun."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last update timestamp."
+        }
+      },
+      "required": [
+        "storeId",
+        "storeName",
+        "ownerId",
+        "managerEmails",
+        "name",
+        "email",
+        "role",
+        "isManager",
+        "birthDate",
+        "photoDataUrl",
+        "active",
+        "schedule",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "OvertimeEntry": {
+      "title": "OvertimeEntry",
+      "description": "Overtime worked or compensated/paid ledger entry for an employee in a store, logged by manager or employee.",
+      "type": "object",
+      "properties": {
+        "storeId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Reference ID of the store."
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "UID of the store owner."
+        },
+        "managerEmails": {
+          "type": "array",
+          "description": "Synced bounded list of store manager emails."
+        },
+        "employeeId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Reference ID of the employee document."
+        },
+        "employeeEmail": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Lowercase email of the employee for self-service access."
+        },
+        "createdByEmail": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Lowercase email of the user who created this overtime entry."
+        },
+        "date": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "minLength": 10,
+          "maxLength": 10,
+          "description": "Date in YYYY-MM-DD format."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["extra", "compensacao", "pago"],
+          "maxLength": 20,
+          "description": "Type of overtime movement."
+        },
+        "minutes": {
+          "type": "integer",
+          "description": "Duration in minutes (1 to 1440)."
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "Optional note."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last update timestamp."
+        }
+      },
+      "required": [
+        "storeId",
+        "ownerId",
+        "managerEmails",
+        "employeeId",
+        "employeeEmail",
+        "createdByEmail",
+        "date",
+        "type",
+        "minutes",
+        "note",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "TimeOffEntry": {
+      "title": "TimeOffEntry",
+      "description": "Planned time-off or absence entry (overtime bank compensation, vacation, medical certificate, or other).",
+      "type": "object",
+      "properties": {
+        "storeId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Reference ID of the store."
+        },
+        "storeName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Denormalized store name."
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "UID of the store owner."
+        },
+        "managerEmails": {
+          "type": "array",
+          "description": "Synced bounded list of store manager emails."
+        },
+        "employeeId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Reference ID of the employee."
+        },
+        "employeeName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "description": "Denormalized employee name."
+        },
+        "employeeEmail": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Lowercase email of the employee."
+        },
+        "startDate": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "minLength": 10,
+          "maxLength": 10,
+          "description": "Start date (inclusive) in YYYY-MM-DD format."
+        },
+        "endDate": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "minLength": 10,
+          "maxLength": 10,
+          "description": "End date (inclusive) in YYYY-MM-DD format."
+        },
+        "reason": {
+          "type": "string",
+          "enum": ["banco_horas", "ferias", "atestado", "outros"],
+          "maxLength": 30,
+          "description": "Reason category for the planned absence."
+        },
+        "deductFromBank": {
+          "type": "boolean",
+          "description": "Whether hours were deducted from the employee's overtime bank."
+        },
+        "deductedMinutes": {
+          "type": "integer",
+          "description": "Minutes deducted from the overtime bank (0 to 14400)."
+        },
+        "linkedOvertimeEntryId": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "ID of linked compensacao OvertimeEntry if deductFromBank is true."
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "Optional note."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last update timestamp."
+        }
+      },
+      "required": [
+        "storeId",
+        "storeName",
+        "ownerId",
+        "managerEmails",
+        "employeeId",
+        "employeeName",
+        "employeeEmail",
+        "startDate",
+        "endDate",
+        "reason",
+        "deductFromBank",
+        "deductedMinutes",
+        "linkedOvertimeEntryId",
+        "note",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Reminder": {
+      "title": "Reminder",
+      "description": "Manager agenda reminder linked to a store and specific date/time.",
+      "type": "object",
+      "properties": {
+        "storeId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]+$",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "Reference ID of the store."
+        },
+        "storeName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Denormalized store name."
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "UID of the store owner."
+        },
+        "managerEmails": {
+          "type": "array",
+          "description": "Synced bounded list of store manager emails."
+        },
+        "date": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+          "minLength": 10,
+          "maxLength": 10,
+          "description": "Reminder date in YYYY-MM-DD format."
+        },
+        "time": {
+          "type": "string",
+          "maxLength": 5,
+          "description": "Optional time in HH:MM format or empty string."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 140,
+          "description": "Short reminder title."
+        },
+        "note": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "Optional additional details."
+        },
+        "done": {
+          "type": "boolean",
+          "description": "Whether the reminder has been completed."
+        },
+        "createdByEmail": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Lowercase email of the manager who created the reminder."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server last update timestamp."
+        }
+      },
+      "required": [
+        "storeId",
+        "storeName",
+        "ownerId",
+        "managerEmails",
+        "date",
+        "time",
+        "title",
+        "note",
+        "done",
+        "createdByEmail",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/stores/{storeId}": {
+      "schema": { "$ref": "#/entities/Store" },
+      "description": "Retail stores managed by owners and assigned store managers."
+    },
+    "/employees/{employeeId}": {
+      "schema": { "$ref": "#/entities/Employee" },
+      "description": "Store employee records with optional email login and manager access."
+    },
+    "/overtimeEntries/{entryId}": {
+      "schema": { "$ref": "#/entities/OvertimeEntry" },
+      "description": "Employee overtime entries scoped by store and writable by store managers or the employee."
+    },
+    "/timeOffs/{timeOffId}": {
+      "schema": { "$ref": "#/entities/TimeOffEntry" },
+      "description": "Planned time-off, vacation, medical leave, and overtime-bank off-days."
+    },
+    "/reminders/{reminderId}": {
+      "schema": { "$ref": "#/entities/Reminder" },
+      "description": "Manager agenda reminders scoped by store and accessible to store owner and managers."
+    }
+  }
+}

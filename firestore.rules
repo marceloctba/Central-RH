@@ -1,0 +1,433 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net: default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() &&
+        request.auth.token.email_verified == true &&
+        request.auth.token.email is string;
+    }
+
+    function userEmail() {
+      return request.auth.token.email.lower();
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidDateStr(d) {
+      return d is string && d.size() == 10;
+    }
+
+    function isValidEmailField(e) {
+      return e is string && e.size() <= 120;
+    }
+
+    function isValidManagerEmails(emails) {
+      return emails is list &&
+        emails.size() <= 20 &&
+        (emails.size() == 0 || (emails[0] is string && emails[0].size() <= 120));
+    }
+
+    function isValidScheduleMap(sched) {
+      return sched is map &&
+        sched.keys().hasAll(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']) &&
+        sched.keys().hasOnly(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']);
+    }
+
+    function isStoreDataManager(storeData) {
+      return storeData.ownerId == request.auth.uid ||
+        storeData.ownerEmail.lower() == userEmail() ||
+        userEmail() in storeData.managerEmails;
+    }
+
+    function isStoreManager(storeId) {
+      return isValidId(storeId) &&
+        exists(/databases/$(database)/documents/stores/$(storeId)) &&
+        isStoreDataManager(get(/databases/$(database)/documents/stores/$(storeId)).data);
+    }
+
+    function canCreateInStore(storeId, docOwnerId) {
+      return isValidId(storeId) &&
+        exists(/databases/$(database)/documents/stores/$(storeId)) &&
+        canUseStoreDataForCreate(get(/databases/$(database)/documents/stores/$(storeId)).data, docOwnerId);
+    }
+
+    function canUseStoreDataForCreate(storeData, docOwnerId) {
+      return storeData.ownerId == docOwnerId && isStoreDataManager(storeData);
+    }
+
+    function isEmployeeInStore(employeeId, storeId) {
+      return isValidId(employeeId) &&
+        exists(/databases/$(database)/documents/employees/$(employeeId)) &&
+        get(/databases/$(database)/documents/employees/$(employeeId)).data.storeId == storeId;
+    }
+
+    function isExistingStoreOwnerOrManager(storeId, existingData) {
+      return existingData.ownerId == request.auth.uid || isStoreManager(storeId);
+    }
+
+    function isValidStore(data) {
+      return data.keys().hasAll(['ownerId', 'ownerEmail', 'name', 'managerEmails', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['ownerId', 'ownerEmail', 'name', 'managerEmails', 'createdAt', 'updatedAt']) &&
+        isValidId(data.ownerId) &&
+        data.ownerEmail is string && data.ownerEmail.size() >= 3 && data.ownerEmail.size() <= 120 &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 80 &&
+        isValidManagerEmails(data.managerEmails);
+    }
+
+    function isValidEmployee(data) {
+      return data.keys().hasAll([
+          'storeId', 'storeName', 'ownerId', 'managerEmails', 'name', 'email',
+          'role', 'isManager', 'birthDate', 'photoDataUrl', 'active', 'schedule', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'storeId', 'storeName', 'ownerId', 'managerEmails', 'name', 'email',
+          'role', 'isManager', 'birthDate', 'photoDataUrl', 'active', 'schedule', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.storeId) &&
+        data.storeName is string && data.storeName.size() >= 1 && data.storeName.size() <= 80 &&
+        isValidId(data.ownerId) &&
+        isValidManagerEmails(data.managerEmails) &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+        isValidEmailField(data.email) &&
+        data.role is string && data.role.size() >= 1 && data.role.size() <= 80 &&
+        data.isManager is bool &&
+        isValidDateStr(data.birthDate) &&
+        data.photoDataUrl is string && data.photoDataUrl.size() <= 200000 &&
+        data.active is bool &&
+        isValidScheduleMap(data.schedule);
+    }
+
+    function isValidOvertimeEntry(data) {
+      return data.keys().hasAll([
+          'storeId', 'ownerId', 'managerEmails', 'employeeId', 'employeeEmail',
+          'createdByEmail', 'date', 'type', 'minutes', 'note', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'storeId', 'ownerId', 'managerEmails', 'employeeId', 'employeeEmail',
+          'createdByEmail', 'date', 'type', 'minutes', 'note', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.storeId) &&
+        isValidId(data.ownerId) &&
+        isValidManagerEmails(data.managerEmails) &&
+        isValidId(data.employeeId) &&
+        isValidEmailField(data.employeeEmail) &&
+        isValidEmailField(data.createdByEmail) &&
+        isValidDateStr(data.date) &&
+        data.type is string && data.type in ['extra', 'compensacao', 'pago'] &&
+        data.minutes is int && data.minutes > 0 && data.minutes <= 1440 &&
+        data.note is string && data.note.size() <= 300;
+    }
+
+    function isValidTimeOff(data) {
+      return data.keys().hasAll([
+          'storeId', 'storeName', 'ownerId', 'managerEmails', 'employeeId', 'employeeName',
+          'employeeEmail', 'startDate', 'endDate', 'reason', 'deductFromBank',
+          'deductedMinutes', 'linkedOvertimeEntryId', 'note', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'storeId', 'storeName', 'ownerId', 'managerEmails', 'employeeId', 'employeeName',
+          'employeeEmail', 'startDate', 'endDate', 'reason', 'deductFromBank',
+          'deductedMinutes', 'linkedOvertimeEntryId', 'note', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.storeId) &&
+        data.storeName is string && data.storeName.size() >= 1 && data.storeName.size() <= 80 &&
+        isValidId(data.ownerId) &&
+        isValidManagerEmails(data.managerEmails) &&
+        isValidId(data.employeeId) &&
+        data.employeeName is string && data.employeeName.size() >= 1 && data.employeeName.size() <= 100 &&
+        isValidEmailField(data.employeeEmail) &&
+        isValidDateStr(data.startDate) &&
+        isValidDateStr(data.endDate) &&
+        data.endDate >= data.startDate &&
+        data.reason is string && data.reason in ['banco_horas', 'ferias', 'atestado', 'outros'] &&
+        data.deductFromBank is bool &&
+        data.deductedMinutes is int && data.deductedMinutes >= 0 && data.deductedMinutes <= 14400 &&
+        data.linkedOvertimeEntryId is string && data.linkedOvertimeEntryId.size() <= 128 &&
+        data.note is string && data.note.size() <= 300;
+    }
+
+    function isValidTimeStr(t) {
+      return t is string && (t == '' || (t.size() == 5 && t.matches('^[0-2][0-9]:[0-5][0-9]$')));
+    }
+
+    function isValidReminder(data) {
+      return data.keys().hasAll([
+          'storeId', 'storeName', 'ownerId', 'managerEmails',
+          'date', 'time', 'title', 'note', 'done', 'createdByEmail',
+          'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'storeId', 'storeName', 'ownerId', 'managerEmails',
+          'date', 'time', 'title', 'note', 'done', 'createdByEmail',
+          'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.storeId) &&
+        data.storeName is string && data.storeName.size() >= 1 && data.storeName.size() <= 80 &&
+        isValidId(data.ownerId) &&
+        isValidManagerEmails(data.managerEmails) &&
+        isValidDateStr(data.date) &&
+        isValidTimeStr(data.time) &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 140 &&
+        data.note is string && data.note.size() <= 300 &&
+        data.done is bool &&
+        isValidEmailField(data.createdByEmail);
+    }
+
+    function isSelfEmployeeDataForOvertime(empData, data) {
+      return empData.active == true &&
+        empData.email != '' &&
+        empData.email.lower() == userEmail() &&
+        data.employeeEmail == userEmail() &&
+        data.createdByEmail == userEmail() &&
+        data.storeId == empData.storeId &&
+        data.ownerId == empData.ownerId &&
+        data.managerEmails == empData.managerEmails;
+    }
+
+    function isSelfEmployeeForOvertime(empId, data) {
+      return isValidId(empId) &&
+        exists(/databases/$(database)/documents/employees/$(empId)) &&
+        isSelfEmployeeDataForOvertime(get(/databases/$(database)/documents/employees/$(empId)).data, data);
+    }
+
+    match /stores/{storeId} {
+      allow list: if isVerified() && (
+        resource.data.ownerId == request.auth.uid ||
+        resource.data.ownerEmail == userEmail() ||
+        userEmail() in resource.data.managerEmails
+      );
+
+      allow get: if isVerified() && isValidId(storeId) && (
+        existing().ownerId == request.auth.uid ||
+        existing().ownerEmail == userEmail() ||
+        userEmail() in existing().managerEmails
+      );
+
+      allow create: if isVerified() &&
+        isValidId(storeId) &&
+        isValidStore(incoming()) &&
+        incoming().ownerId == request.auth.uid &&
+        incoming().ownerEmail == userEmail();
+
+      allow update: if isVerified() &&
+        isValidId(storeId) &&
+        isValidStore(incoming()) &&
+        isStoreDataManager(existing()) &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().ownerEmail == existing().ownerEmail &&
+        incoming().createdAt == existing().createdAt &&
+        (
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['managerEmails', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'managerEmails', 'updatedAt'])
+        );
+
+      allow delete: if isVerified() && isValidId(storeId) && (
+        existing().ownerId == request.auth.uid ||
+        existing().ownerEmail == userEmail()
+      );
+    }
+
+    match /employees/{employeeId} {
+      allow list: if isVerified() && (
+        resource.data.ownerId == request.auth.uid ||
+        userEmail() in resource.data.managerEmails ||
+        (userEmail().size() > 0 && resource.data.email == userEmail())
+      );
+
+      allow get: if isVerified() && isValidId(employeeId) && (
+        existing().ownerId == request.auth.uid ||
+        userEmail() in existing().managerEmails ||
+        (userEmail().size() > 0 && existing().email == userEmail())
+      );
+
+      allow create: if isVerified() &&
+        isValidId(employeeId) &&
+        isValidEmployee(incoming()) &&
+        (
+          incoming().ownerId == request.auth.uid ||
+          canCreateInStore(incoming().storeId, incoming().ownerId)
+        );
+
+      allow update: if isVerified() &&
+        isValidId(employeeId) &&
+        isValidEmployee(incoming()) &&
+        isExistingStoreOwnerOrManager(existing().storeId, existing()) &&
+        incoming().storeId == existing().storeId &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        (
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'name', 'email', 'role', 'isManager', 'birthDate', 'photoDataUrl',
+            'active', 'schedule', 'managerEmails', 'storeName', 'updatedAt'
+          ]) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['managerEmails', 'storeName', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['schedule', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['active', 'updatedAt'])
+        );
+
+      allow delete: if isVerified() &&
+        isValidId(employeeId) &&
+        isExistingStoreOwnerOrManager(existing().storeId, existing());
+    }
+
+    match /overtimeEntries/{entryId} {
+      allow list: if isVerified() && (
+        resource.data.ownerId == request.auth.uid ||
+        userEmail() in resource.data.managerEmails ||
+        (userEmail().size() > 0 && resource.data.employeeEmail == userEmail())
+      );
+
+      allow get: if isVerified() && isValidId(entryId) && (
+        existing().ownerId == request.auth.uid ||
+        userEmail() in existing().managerEmails ||
+        (userEmail().size() > 0 && existing().employeeEmail == userEmail())
+      );
+
+      allow create: if isVerified() &&
+        isValidId(entryId) &&
+        isValidOvertimeEntry(incoming()) &&
+        (
+          incoming().ownerId == request.auth.uid ||
+          (
+            canCreateInStore(incoming().storeId, incoming().ownerId) &&
+            isEmployeeInStore(incoming().employeeId, incoming().storeId)
+          ) ||
+          isSelfEmployeeForOvertime(incoming().employeeId, incoming())
+        );
+
+      allow update: if isVerified() &&
+        isValidId(entryId) &&
+        isValidOvertimeEntry(incoming()) &&
+        isExistingStoreOwnerOrManager(existing().storeId, existing()) &&
+        incoming().storeId == existing().storeId &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().employeeId == existing().employeeId &&
+        incoming().createdAt == existing().createdAt &&
+        (
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'date', 'type', 'minutes', 'note', 'employeeEmail', 'createdByEmail', 'updatedAt'
+          ]) ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'managerEmails', 'employeeEmail', 'createdByEmail', 'updatedAt'
+          ])
+        );
+
+      allow delete: if isVerified() && isValidId(entryId) && (
+        isExistingStoreOwnerOrManager(existing().storeId, existing()) ||
+        (
+          existing().employeeEmail != '' &&
+          existing().employeeEmail == userEmail() &&
+          ('createdByEmail' in existing()) &&
+          existing().createdByEmail == userEmail()
+        )
+      );
+    }
+
+    match /timeOffs/{timeOffId} {
+      allow list: if isVerified() && (
+        resource.data.ownerId == request.auth.uid ||
+        userEmail() in resource.data.managerEmails ||
+        (userEmail().size() > 0 && resource.data.employeeEmail == userEmail())
+      );
+
+      allow get: if isVerified() && isValidId(timeOffId) && (
+        existing().ownerId == request.auth.uid ||
+        userEmail() in existing().managerEmails ||
+        (userEmail().size() > 0 && existing().employeeEmail == userEmail())
+      );
+
+      allow create: if isVerified() &&
+        isValidId(timeOffId) &&
+        isValidTimeOff(incoming()) &&
+        (
+          incoming().ownerId == request.auth.uid ||
+          (
+            canCreateInStore(incoming().storeId, incoming().ownerId) &&
+            isEmployeeInStore(incoming().employeeId, incoming().storeId)
+          )
+        );
+
+      allow update: if isVerified() &&
+        isValidId(timeOffId) &&
+        isValidTimeOff(incoming()) &&
+        isExistingStoreOwnerOrManager(existing().storeId, existing()) &&
+        incoming().storeId == existing().storeId &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().employeeId == existing().employeeId &&
+        incoming().createdAt == existing().createdAt &&
+        (
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'managerEmails', 'storeName', 'employeeEmail', 'employeeName', 'updatedAt'
+          ]) ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'startDate', 'endDate', 'reason', 'deductFromBank', 'deductedMinutes', 'note', 'updatedAt'
+          ])
+        );
+
+      allow delete: if isVerified() &&
+        isValidId(timeOffId) &&
+        isExistingStoreOwnerOrManager(existing().storeId, existing());
+    }
+
+    match /reminders/{reminderId} {
+      allow list: if isVerified() && (
+        resource.data.ownerId == request.auth.uid ||
+        userEmail() in resource.data.managerEmails
+      );
+
+      allow get: if isVerified() && isValidId(reminderId) && (
+        existing().ownerId == request.auth.uid ||
+        userEmail() in existing().managerEmails
+      );
+
+      allow create: if isVerified() &&
+        isValidId(reminderId) &&
+        isValidReminder(incoming()) &&
+        canCreateInStore(incoming().storeId, incoming().ownerId);
+
+      allow update: if isVerified() &&
+        isValidId(reminderId) &&
+        isValidReminder(incoming()) &&
+        isExistingStoreOwnerOrManager(existing().storeId, existing()) &&
+        incoming().storeId == existing().storeId &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        (
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'date', 'time', 'title', 'note', 'done', 'updatedAt'
+          ]) ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'done', 'updatedAt'
+          ]) ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'managerEmails', 'storeName', 'updatedAt'
+          ])
+        );
+
+      allow delete: if isVerified() &&
+        isValidId(reminderId) &&
+        isExistingStoreOwnerOrManager(existing().storeId, existing());
+    }
+  }
+}
