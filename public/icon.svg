@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
+  <rect width="512" height="512" rx="112" fill="#1d4ed8" />
+  <rect x="24" y="24" width="464" height="464" rx="92" stroke="#60a5fa" stroke-opacity="0.28" stroke-width="4" />
+  <!-- Calendar / Schedule top tabs -->
+  <rect x="164" y="96" width="32" height="56" rx="16" fill="#ffffff" />
+  <rect x="316" y="96" width="32" height="56" rx="16" fill="#ffffff" />
+  <!-- Main card -->
+  <rect x="108" y="128" width="296" height="276" rx="44" fill="#ffffff" />
+  <!-- Card header divider -->
+  <rect x="108" y="128" width="296" height="72" rx="44" fill="#dbeafe" />
+  <rect x="108" y="168" width="296" height="32" fill="#dbeafe" />
+  <!-- Schedule shift rows -->
+  <rect x="148" y="236" width="144" height="28" rx="14" fill="#1d4ed8" />
+  <rect x="308" y="236" width="56" height="28" rx="14" fill="#60a5fa" />
+  <rect x="148" y="286" width="108" height="28" rx="14" fill="#1e293b" />
+  <rect x="272" y="286" width="92" height="28" rx="14" fill="#93c5fd" />
+  <rect x="148" y="336" width="216" height="28" rx="14" fill="#1d4ed8" fill-opacity="0.22" />
+</svg>

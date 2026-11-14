@@ -26,8 +26,10 @@ import { EmployeeFormModal } from './components/EmployeeFormModal';
 import { EmployeeSelfView } from './components/EmployeeSelfView';
 import { EmployeesView } from './components/EmployeesView';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { OfflineIndicator } from './components/OfflineIndicator';
 import { OvertimeModal } from './components/OvertimeModal';
 import { OvertimeView } from './components/OvertimeView';
+import { PWAInstallButton } from './components/PWAInstallButton';
 import { ReminderModal } from './components/ReminderModal';
 import { StoreModal } from './components/StoreModal';
 import { TimeOffModal } from './components/TimeOffModal';
@@ -700,6 +702,8 @@ function AppContent() {
           >
             {signingIn ? 'Conectando...' : 'Entrar com Google'}
           </button>
+
+          <PWAInstallButton variant="card" />
         </div>
       </div>
     );
@@ -730,7 +734,8 @@ function AppContent() {
               Portal do Colaborador
             </span>
           </div>
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2.5 shrink-0">
+            <PWAInstallButton variant="header" />
             <span className="hidden sm:inline text-xs text-slate-500">{user.email}</span>
             <button
               type="button"
@@ -851,6 +856,8 @@ function AppContent() {
             <span className="font-mono text-slate-700">{user.email}</span>) na sua ficha para
             visualizar sua escala automaticamente aqui.
           </div>
+
+          <PWAInstallButton variant="card" />
         </div>
       </div>
     );
@@ -1031,6 +1038,8 @@ function AppContent() {
             </div>
           </div>
 
+          <PWAInstallButton variant="sidebar" />
+
           <button
             type="button"
             onClick={() => void handleSignOut()}
@@ -1064,6 +1073,9 @@ function AppContent() {
           </div>
 
           <div className="flex items-center gap-2.5 shrink-0">
+            <div className="hidden sm:flex">
+              <PWAInstallButton variant="header" />
+            </div>
             <button
               type="button"
               onClick={openNewEmployeeModal}
@@ -1319,6 +1331,7 @@ export default function App() {
   return (
     <ErrorBoundary>
       <AppContent />
+      <OfflineIndicator />
     </ErrorBoundary>
   );
 }
