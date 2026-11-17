@@ -37,9 +37,14 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function () {
-          navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(function (err) {
-            console.warn('Service Worker registration skipped:', err);
-          });
+          navigator.serviceWorker
+            .register('/sw.js', { scope: '/', updateViaCache: 'none' })
+            .then(function (reg) {
+              reg.update().catch(function () {});
+            })
+            .catch(function (err) {
+              console.warn('Service Worker registration skipped:', err);
+            });
         });
       }
     </script>

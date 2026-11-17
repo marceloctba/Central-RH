@@ -24,6 +24,7 @@ import {
   getLiveShiftStatus,
   getTimeOffForEmployeeOnDate,
   getTodayDayKey,
+  minutesToTime,
   TIME_OFF_REASON_LABELS,
   timeToMinutes,
 } from '../utils/schedule';
@@ -43,14 +44,11 @@ interface DailyScheduleViewProps {
   onAddEmployee: () => void;
 }
 
-const TIMELINE_START_MIN = 6 * 60; // 06:00
-const TIMELINE_END_MIN = 23 * 60; // 23:00
-const TIMELINE_SPAN_MIN = TIMELINE_END_MIN - TIMELINE_START_MIN;
-const HOUR_MARKS = [6, 8, 10, 12, 14, 16, 18, 20, 22];
-
-function pct(minutes: number): number {
-  const clamped = Math.max(TIMELINE_START_MIN, Math.min(TIMELINE_END_MIN, minutes));
-  return ((clamped - TIMELINE_START_MIN) / TIMELINE_SPAN_MIN) * 100;
+function formatTimelineTick(minutes: number): string {
+  if (minutes % 60 === 0) {
+    return `${String(Math.floor(minutes / 60)).padStart(2, '0')}h`;
+  }
+  return minutesToTime(minutes);
 }
 
 export function DailyScheduleView({
@@ -139,6 +137,51 @@ export function DailyScheduleView({
         (emp) => getLiveShiftStatus(emp.schedule[selectedDay], true, now).code === 'lunch',
       ).length
     : workingRows.filter((emp) => emp.schedule[selectedDay].hasLunch).length;
+
+  const { timelineStartMin, timelineEndMin, timelineMarks } = useMemo(() => {
+    let minStart = Number.POSITIVE_INFINITY;
+    let maxEnd = Number.NEGATIVE_INFINITY;
+
+    for (const emp of activeEmployees) {
+      if (getTimeOffForEmployeeOnDate(timeOffs, emp.id, selectedDateIso)) continue;
+      const d = emp.schedule[selectedDay];
+      if (!d?.working) continue;
+      const s = timeToMinutes(d.startTime);
+      const e = timeToMinutes(d.endTime);
+      if (e > s) {
+        if (s < minStart) minStart = s;
+        if (e > maxEnd) maxEnd = e;
+      }
+    }
+
+    const startMin = Number.isFinite(minStart) && maxEnd > minStart ? minStart : 8 * 60;
+    const endMin = Number.isFinite(maxEnd) && maxEnd > minStart ? maxEnd : 18 * 60;
+    const spanMin = endMin - startMin;
+    const stepMinutes = spanMin <= 12 * 60 ? 60 : 120;
+
+    const marks: number[] = [startMin];
+    const firstWholeHourMin = Math.ceil(startMin / 60) * 60;
+    for (let t = firstWholeHourMin; t < endMin; t += stepMinutes) {
+      if (t - startMin >= 35 && endMin - t >= 35) {
+        marks.push(t);
+      }
+    }
+    if (endMin > startMin) {
+      marks.push(endMin);
+    }
+
+    return {
+      timelineStartMin: startMin,
+      timelineEndMin: endMin,
+      timelineMarks: marks,
+    };
+  }, [activeEmployees, timeOffs, selectedDateIso, selectedDay]);
+
+  const timelineSpanMin = Math.max(1, timelineEndMin - timelineStartMin);
+  const pct = (minutes: number): number => {
+    const clamped = Math.max(timelineStartMin, Math.min(timelineEndMin, minutes));
+    return ((clamped - timelineStartMin) / timelineSpanMin) * 100;
+  };
 
   return (
     <div className="space-y-6">
@@ -355,7 +398,8 @@ export function DailyScheduleView({
           <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
             <div className="px-5 py-3.5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-sm font-semibold text-slate-900">
-                Linha do tempo de turnos e almoço (06:00 às 23:00)
+                Linha do tempo de turnos e almoço ({minutesToTime(timelineStartMin)} às{' '}
+                {minutesToTime(timelineEndMin)})
               </h3>
               <div className="flex items-center gap-4 text-xs text-slate-600">
                 <span className="inline-flex items-center gap-1.5">
@@ -381,22 +425,32 @@ export function DailyScheduleView({
                       Colaborador
                     </div>
                     <div className="flex-1 relative h-5">
-                      {HOUR_MARKS.map((h) => (
-                        <span
-                          key={h}
-                          style={{ left: `${pct(h * 60)}%` }}
-                          className="absolute -translate-x-1/2 text-[11px] font-mono tabular-nums text-slate-400"
-                        >
-                          {String(h).padStart(2, '0')}h
-                        </span>
-                      ))}
+                      {timelineMarks.map((m, idx) => {
+                        const isFirst = idx === 0;
+                        const isLast = idx === timelineMarks.length - 1;
+                        return (
+                          <span
+                            key={m}
+                            style={{ left: `${pct(m)}%` }}
+                            className={`absolute text-[11px] font-mono tabular-nums text-slate-400 ${
+                              isFirst
+                                ? 'translate-x-0'
+                                : isLast
+                                  ? '-translate-x-full'
+                                  : '-translate-x-1/2'
+                            }`}
+                          >
+                            {formatTimelineTick(m)}
+                          </span>
+                        );
+                      })}
                     </div>
                   </div>
 
                   <div className="relative space-y-2.5">
                     {isToday &&
-                      nowMinutes >= TIMELINE_START_MIN &&
-                      nowMinutes <= TIMELINE_END_MIN && (
+                      nowMinutes >= timelineStartMin &&
+                      nowMinutes <= timelineEndMin && (
                         <div
                           style={{ left: `calc(13rem + (100% - 13rem) * ${pct(nowMinutes) / 100})` }}
                           className="pointer-events-none absolute top-0 bottom-0 z-10 w-px bg-red-500"
@@ -438,10 +492,10 @@ export function DailyScheduleView({
                           </div>
 
                           <div className="flex-1 relative h-9 bg-slate-100/80 rounded-lg border border-slate-200/80 overflow-hidden">
-                            {HOUR_MARKS.map((h) => (
+                            {timelineMarks.slice(1, -1).map((m) => (
                               <div
-                                key={h}
-                                style={{ left: `${pct(h * 60)}%` }}
+                                key={m}
+                                style={{ left: `${pct(m)}%` }}
                                 className="absolute top-0 bottom-0 w-px bg-slate-200/70"
                               />
                             ))}

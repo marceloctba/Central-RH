@@ -1,4 +1,4 @@
-const CACHE_NAME = 'central-rh-v1';
+const CACHE_NAME = 'central-rh-v2';
 const APP_SHELL_ASSETS = [
   '/',
   '/index.html',
@@ -20,6 +20,17 @@ const BYPASS_HOSTS = [
   'accounts.google.com',
   'apis.google.com',
 ];
+
+function isViteDevRequest(url) {
+  return (
+    url.pathname.startsWith('/@') ||
+    url.pathname.startsWith('/src/') ||
+    url.pathname.startsWith('/node_modules/') ||
+    url.searchParams.has('t') ||
+    url.searchParams.has('v') ||
+    url.searchParams.has('import')
+  );
+}
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -58,6 +69,16 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  // Never cache Vite dev modules or HMR endpoints
+  if (isViteDevRequest(url)) {
+    return;
+  }
+
+  // Navigations: network-first with cached index.html fallback when offline
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
@@ -73,7 +94,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (url.origin === self.location.origin) {
+  // Immutable hashed production assets: cache-first
+  if (url.pathname.startsWith('/assets/')) {
     event.respondWith(
       caches.match(request).then(
         (cached) =>
@@ -87,5 +109,19 @@ self.addEventListener('fetch', (event) => {
           }),
       ),
     );
+    return;
   }
+
+  // Other same-origin static files (manifest, icons): network-first with cache fallback
+  event.respondWith(
+    fetch(request)
+      .then((response) => {
+        if (response && response.ok && response.type === 'basic') {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+        }
+        return response;
+      })
+      .catch(() => caches.match(request)),
+  );
 });
