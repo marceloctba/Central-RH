@@ -152,15 +152,19 @@ export function DailyScheduleView({
                 <button
                   key={dayKey}
                   type="button"
+                  aria-current={isDayToday ? 'date' : undefined}
                   onClick={() => setSelectedDay(dayKey)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  className={`flex-1 sm:flex-initial text-center px-2.5 sm:px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                     active
-                      ? 'bg-white text-slate-900 shadow-xs font-semibold'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? isDayToday
+                        ? 'bg-white text-blue-700 shadow-xs font-semibold'
+                        : 'bg-white text-slate-900 shadow-xs font-semibold'
+                      : isDayToday
+                        ? 'text-blue-700 font-semibold hover:text-blue-800'
+                        : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
                   {DAY_LABELS[dayKey].short}
-                  {isDayToday ? ' · Hoje' : ''}
                 </button>
               );
             })}
